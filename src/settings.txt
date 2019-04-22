@@ -1,0 +1,3 @@
+mainThemeColor LightGreen
+tabColour white
+activeTabColour Yellow
