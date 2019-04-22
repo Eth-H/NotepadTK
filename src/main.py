@@ -5,7 +5,7 @@ from tkinter import filedialog
 
 
 #Import local classes
-from Python_projects.NotepadTK.src.cryptography import Cryptography
+from src.cryptography import Cryptography
 #TODO Add functionality for keeping deleted files stored temporarily
 #TODO: create cryptogrpahy functions, add new menu items and functionality
 #https://pythonspot.com/tk-file-dialogs/
@@ -293,26 +293,93 @@ class ContainerWindow:
                 file.close()
             except:
                 messagebox.showerror("Save Error", "Incorrect path or file position")
-
+    ### Methods related to closing the program ----------
     def closePreperations(self):
         #Check if any frames have not been saved
         closeFile = True
+        #Check if the user wants to use check for unsaved tabs on exit
+        unwantedUnsavedFrames = []
+        if self.settingsObject["askUnsavedTabsOnClose"] == "CheckEach":
+            for frameName in self.frames:
+                self.currentFrame = frameName
+                #If a file has no text then it wasnt saved
+                if self.frameInfo[frameName]["path"] == "":
+                    #If the file is a new file that was created inside the text editor and has no text then assume that file is not important
+                    print(len(self.frames[frameName].winfo_children()[1].get(1.0, END)))
+                    if len(self.frames[frameName].winfo_children()[1].get(1.0, END)) > 1:
+                        #If yes save the file (self.currentFrame used to select it), otherwise remove from currentFrames.json so the editor doesnt try to open it on startup
+                        if messagebox.askyesno("Save file {}?".format(frameName)):
+                            self.saveAsFile()
+                        else:
+                            unwantedUnsavedFrames.append(frameName)
+            #Update frameInfo contained in currentFiles.json and close program
+            self.closeProgram(unwantedUnsavedFrames)
+            # End program
+        #TODO add a dialog box that asks the user what files they want to close
+        elif self.settingsObject["askUnsavedTabsOnClose"] == "List":
+            unsavedFrames = []
+            for frameName in self.frames:
+                if self.frameInfo[frameName]["path"] == "":
+                    unsavedFrames.append(frameName)
+            self.checkUnsavedTabsDialog(unsavedFrames)
+        #If setting is not a selected option, assume the user doesnt want them to be saved, discard and remove all unsaved frames
+        else:
+            for frameName in self.frames:
+                if self.frameInfo[frameName]["path"] == "":
+                    unwantedUnsavedFrames.append(frameName)
+            self.closeProgram(unwantedUnsavedFrames)
 
-        for frameName in self.frames:
-            if self.frameInfo[frameName]["path"] == "":
-                #If the file is a new file that was created inside the text editor and has no text then assume that file is not important
-                if messagebox.askokcancel("Quit", "Are you sure you want to quit, file:{} is not saved".format(frameName)):
-                    pass
-                else:
-                    closeFile = False
-        if closeFile:
-            file = open("currentFiles.json", "w")
-            json.dump(self.frameInfo, file)
-            root.destroy()
+    #When the askUnsavedTabsOnClose is set to List in settings.txt, a dialog is loaded with all the currently unsaved frames
+    def checkUnsavedTabsDialog(self, unsavedFrames):
+        saveFileDialog = Toplevel()
+        saveFileDialog.grab_set()
+        saveFileDialog.configure(bg=self.settingsObject["mainThemeColor"])
+        self.SFDlistBoxLabel = Label(saveFileDialog, text="Chose files to save")
+        self.SFDlistBoxLabel.grid(row=0, column=0)
+        self.SFDoptions = StringVar()
+        self.SFDoptions.set(unsavedFrames)
+        self.SFDlistBox = Listbox(saveFileDialog, listvariable=self.SFDoptions, exportselection=0,
+                                  selectmode=MULTIPLE, font=("Trebuchet MS", 10), width=50)
+        self.SFDlistBox.grid(row=1, column=0)
+        self.saveSelected = Button(saveFileDialog, text="Save selected files",
+                               command=lambda: self.saveSelectedFrames(saveFileDialog, unsavedFrames))
+        self.saveSelected.grid(row=4, column=0)
+        self.saveNone = Button(saveFileDialog, text="Just delete all files", bg="red",
+                               font=("Trebuchet MS", 10, 'bold'),
+                               command=lambda: self.closeProgram(unsavedFrames))
+        self.saveNone.grid(row=4, column=3)
+
+    def saveSelectedFrames(self, saveFileDialog, unsavedFrames):
+        self.SFDlistBoxSelectedList = []
+        selection = self.SFDlistBox.curselection()
+        if len(selection) == 0:
+            pass
+        else:
+            for i in selection:
+                entrada = self.SFDlistBox.get(i)
+                self.SFDlistBoxSelectedList.append(entrada)
+            #Save the files selected
+            for frameName in self.SFDlistBoxSelectedList:
+                self.currentFrame = frameName
+                self.saveAsFile()
+            saveFileDialog.grab_release()
+            saveFileDialog.destroy()
+        #Build a list of items not selected
+        unwantedUnsavedFrames = []
+        for frameName in unsavedFrames:
+            if frameName not in self.SFDlistBoxSelectedList:
+                unwantedUnsavedFrames.append(frameName)
+        self.closeProgram(unwantedUnsavedFrames)
+
+    def closeProgram(self, unwantedUnsavedFrames):
+        self.updateCurrentFramesJSON(self.frameInfo, unwantedUnsavedFrames)
+        root.destroy()
+    ### ----------
 
     def loadLastSession(self):
         #Open file containg fileInfo's of files closed last session
         oldFrameInfo = json.loads(open("currentFiles.json").read())
+        unwantedUnsavedFiles = []
         for frameName in oldFrameInfo.keys():
             #Check if a loaded file exists, if it doesnt exist warn the user
             if os.path.isfile(oldFrameInfo[frameName]["path"]):
@@ -320,9 +387,22 @@ class ContainerWindow:
                 #self.createWindow("main", frameName, oldFrameInfo[frameName])
             else:
                 #TODO Load text for files that have been removed
-                if messagebox.askyesno("Load last session", "The file {} does not exist anymore, keep it open?".format(frameName)):
+                if messagebox.askyesno("Load last session", "The file {} does not exist anymore or has been moved, keep it open?".format(frameName)):
                     self.createWindow("main", frameName, oldFrameInfo[frameName])
+                else:
+                    #Add to list of files to remove from currentFiles.json
+                    unwantedUnsavedFiles.append(frameName)
+        self.updateCurrentFramesJSON(oldFrameInfo, unwantedUnsavedFiles)
 
+    #Get rid of frames from currentFiles.json when they don't exist in the current application instance, should be called during opening and closing of the program (frameInfo doesnt need to be edited since the program will be closed)
+    def updateCurrentFramesJSON(self, frameInfo, framesToRemove):
+        #Format frameInfo instance to reflect changes
+        for frameName in framesToRemove:
+            del frameInfo[frameName]
+        #Write changes
+        file = open("currentFiles.json", "w")
+        json.dump(frameInfo, file)
+        file.close()
 
     #MENU OPERATIONS------
     def hello(self):
