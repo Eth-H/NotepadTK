@@ -31,7 +31,7 @@ class ContainerWindow:
     def initUI(self):
         #FORAMT WINDOW
         self.root.configure(bg="#98fb98")
-        self.root.title("Emera src")
+        self.root.title("NotepadTK")
         self.root.minsize(500, 500)
 
         #CREATE MENU
@@ -130,7 +130,7 @@ class ContainerWindow:
             currentDate = time.strftime('%d-%m-%Y')
             #If no frameInfo was passed give it default values, otherwise assume old fileInfo
             if frameInfoItem == "":
-                self.frameInfo[frameName] = {"path": "", "creationDate": currentDate}
+                self.frameInfo[frameName] = {"path": "", "creationDate": currentDate, "windowType": "text"}
             else:
                 self.frameInfo[frameName] = frameInfoItem
             # Add frame to menu so that it can be switched too
@@ -165,7 +165,7 @@ class ContainerWindow:
                 removeFrame = False
         #Remove the frame completely from the application
         if removeFrame:
-            #TODO show the farme before the current frame before destroying it (rather than the first frame)
+            #TODO show the frame before the current frame before destroying it (rather than the first frame)
             #Remove from GUI
             self.frames[frameName].grid_forget()
             self.tabs[frameName].pack_forget()
@@ -191,7 +191,6 @@ class ContainerWindow:
     #MANAGE TABS------------
     def createTab(self, frameName):
         #TODO Decide whether tabFrame and children should use self. or not, get frame name to fit inside the tab regardless of length
-        #TODO Change colour of the active tab
         #Create a frame
         tabFrame = Frame(self.tabBar, bg=self.settingsObject["activeTabColour"])
         tabFrame.pack(side=LEFT)
@@ -218,6 +217,7 @@ class ContainerWindow:
     def openFile(self):
         #TODO fix error msg when an oponed a file is closed
         #TODO Determine if the file being opened has frameInfo in currentFiles, if it does pass it, otherwise pass ""
+        #TODO Change initial directory to the directory of the file last opened
         filePath = filedialog.askopenfilename(initialdir="/", title="Select file",
                                                    filetypes=(("txt files", "*.txt"), ("all files", "*.*")))
 
@@ -254,6 +254,9 @@ class ContainerWindow:
         #Get the user to chose a location (to generate a path)
         filePath = filedialog.asksaveasfilename(initialdir="/", title=self.currentFrame,
                                                 filetypes=(("txt files", "*.txt"), ("all files", "*.*")))
+        #If the user presses quit rather than exiting, exit the function
+        if len(filePath) == 0:
+            return None
         #If the filePath does not include a file extension then add one
         #TODO Make this work for all file extensions
         if filePath.lower().endswith((".txt", ".log")):
@@ -278,9 +281,15 @@ class ContainerWindow:
         self.frames[frameName] = self.frames.pop(self.currentFrame)
         self.frameInfo[frameName] = self.frameInfo.pop(self.currentFrame)
         self.tabs[frameName] = self.tabs.pop(self.currentFrame)
-        #Change frame name
+
+        #Update tabs, change tab binded method (so that when the tab is clicked it doesnt look for the old frameName )
         self.tabs[frameName].winfo_children()[0]["text"] = frameName
+        self.tabs[frameName].winfo_children()[0].unbind("<Button-1>")
+        self.tabs[frameName].winfo_children()[0].bind("<Button-1>", lambda e: self.show_frame(frameName))
+        #Finally set old currentFrame to the new frame name
         self.currentFrame = frameName
+
+        #ChangeWindowLabel.bind("<Button-1>", lambda e: self.show_frame(frameName))
 
     def saveFile(self):
         #If file does not exist
@@ -305,13 +314,14 @@ class ContainerWindow:
                 #If a file has no text then it wasnt saved
                 if self.frameInfo[frameName]["path"] == "":
                     #If the file is a new file that was created inside the text editor and has no text then assume that file is not important
-                    print(len(self.frames[frameName].winfo_children()[1].get(1.0, END)))
                     if len(self.frames[frameName].winfo_children()[1].get(1.0, END)) > 1:
                         #If yes save the file (self.currentFrame used to select it), otherwise remove from currentFrames.json so the editor doesnt try to open it on startup
                         if messagebox.askyesno("Save file {}?".format(frameName)):
                             self.saveAsFile()
                         else:
                             unwantedUnsavedFrames.append(frameName)
+                    else:
+                        unwantedUnsavedFrames.append(frameName)
             #Update frameInfo contained in currentFiles.json and close program
             self.closeProgram(unwantedUnsavedFrames)
             # End program
@@ -407,7 +417,6 @@ class ContainerWindow:
     #MENU OPERATIONS------
     def hello(self):
         print("Hello")
-
 
 #Inherits from tk.Frame
 class MainWindow(Frame):
