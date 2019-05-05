@@ -18,15 +18,38 @@ class ContainerWindow:
         self.initUI()
 
     def loadSettings(self):
-        #TODO Check that settings.txt and currentFiles.json exist
+        #settings.txt -> settings for current installation, currentInstance.txt -> Contains info on the current session being run, currentFiles.json -> Contains a frameInfo instance from the last time the program was closed
+
+
+        #Check if settings.txt file and currentFiles.json exist
+        if not os.path.isfile("./settings.txt"):
+            file = open("settings.txt", "w")
+            defaultSettings = "mainThemeColor LightGreen\ntabColour white\nactiveTabColour Yellow\naskUnsavedTabsOnClose CheckEach\n"
+            file.writelines(defaultSettings)
+            file.close()
+
+        if not os.path.isfile("./currentInstance.json"):
+            defaultInstanceParameters = {"lastPathUsed": "/"}
+            self.updateCurrentInstanceJSON(defaultInstanceParameters)
+
+
+        if not os.path.isfile("./currentFiles.json"):
+            file = open("currentFiles.json","w")
+            file.close()
 
         # Use readlines method to get each line
         file = open("settings.txt").readlines()
         self.settingsObject = {}
         for line in file:
             line=line.split()
-            #May needed to edit if multiple options are added later
-            self.settingsObject[line[0]] = line[1]
+            #If line is empty pass
+            if len(line) == 0:
+                pass
+            else:
+                self.settingsObject[line[0]] = line[1]
+
+        self.currentInstanceObject = json.loads(open("currentInstance.json").read())
+        print(self.currentInstanceObject)
 
     def initUI(self):
         #FORAMT WINDOW
@@ -95,6 +118,8 @@ class ContainerWindow:
         #Create the first frame if no fames where loaded
         if len(self.frames) == 0:
             self.createWindow("main", "", "")
+
+
 
     #MANAGE FRAMES-------------------
     def show_frame(self, frameName):
@@ -165,7 +190,6 @@ class ContainerWindow:
                 removeFrame = False
         #Remove the frame completely from the application
         if removeFrame:
-            #TODO show the frame before the current frame before destroying it (rather than the first frame)
             #Remove from GUI
             self.frames[frameName].grid_forget()
             self.tabs[frameName].pack_forget()
@@ -177,11 +201,11 @@ class ContainerWindow:
             del self.tabs[frameName]
 
             #Set next frame
-            #If no frames are left create a new frame, otherwise load the first frame, TODO swap frame loaded to the one next to the current
+            #If no frames are left create a new frame, otherwise load the first frame
             if len(self.frames) == 0:
                 self.createWindow("main", "", "")
             else:
-                firstFrameName = list(self.frames)[0]
+                firstFrameName = list(self.frames)[-1]
                 #Set current frame now since the currentFrame no longer exists (causing key errors down the line)
                 self.currentFrame = firstFrameName
                 self.show_frame(firstFrameName)
@@ -190,7 +214,6 @@ class ContainerWindow:
 
     #MANAGE TABS------------
     def createTab(self, frameName):
-        #TODO Decide whether tabFrame and children should use self. or not, get frame name to fit inside the tab regardless of length
         #Create a frame
         tabFrame = Frame(self.tabBar, bg=self.settingsObject["activeTabColour"])
         tabFrame.pack(side=LEFT)
@@ -205,7 +228,6 @@ class ContainerWindow:
         QuitTabButton.pack(side=RIGHT)
         self.tabs[frameName] = tabFrame
 
-        # TODO Figure out a way to change quit button to red
         # quitImage = PhotoImage(file="quitImage.png")
         # QuitTabButton.config(image=quitImage, activebackground="black")
 
@@ -215,17 +237,15 @@ class ContainerWindow:
 
     # MANAGE FILE OPERATIONS-------------
     def openFile(self):
-        #TODO fix error msg when an oponed a file is closed
-        #TODO Determine if the file being opened has frameInfo in currentFiles, if it does pass it, otherwise pass ""
-        #TODO Change initial directory to the directory of the file last opened
-        filePath = filedialog.askopenfilename(initialdir="/", title="Select file",
+        filePath = filedialog.askopenfilename(initialdir=self.currentInstanceObject["lastPathUsed"], title="Select file",
                                                    filetypes=(("txt files", "*.txt"), ("all files", "*.*")))
-
         #fileName = print(os.path.basename(filePath))
         #Extract fileName from path
         pathHead, pathTail = os.path.split(filePath)
-        #Create a fileInfo object to pass to self.createWindoe
-        frameInfoItem = {"path": filePath, "creationTime": ""}
+        #Remember the last directory the program was in, so next time you interact with the file system you start there
+        self.currentInstanceObject["lastPathUsed"] = pathHead
+        #Create a fileInfo object to pass to self.createWindow
+        frameInfoItem = {"path": filePath, "creationTime": "", "windowType": "text"}
 
         #Open the file and write its contents to a new frame
         try:
@@ -252,17 +272,15 @@ class ContainerWindow:
     def saveAsFile(self):
         #TODO Fix saveAs problems when clicking anouther tab and then clicking back
         #Get the user to chose a location (to generate a path)
-        filePath = filedialog.asksaveasfilename(initialdir="/", title=self.currentFrame,
+        filePath = filedialog.asksaveasfilename(initialdir=self.currentInstanceObject["lastPathUsed"], title=self.currentFrame,
                                                 filetypes=(("txt files", "*.txt"), ("all files", "*.*")))
         #If the user presses quit rather than exiting, exit the function
         if len(filePath) == 0:
             return None
         #If the filePath does not include a file extension then add one
         #TODO Make this work for all file extensions
-        if filePath.lower().endswith((".txt", ".log")):
-            pass
-        else:
-            filePath = filePath + ".txt"
+        pathHead, pathTail = os.path.split(filePath)
+        self.currentInstanceObject["lastPathUsed"] = pathHead
 
         currentFrameText = self.frames[self.currentFrame].winfo_children()[1].get(1.0, END)
         try:
@@ -381,8 +399,10 @@ class ContainerWindow:
                 unwantedUnsavedFrames.append(frameName)
         self.closeProgram(unwantedUnsavedFrames)
 
+    #Writes any data needed for the next session to the file system then closes the program completely
     def closeProgram(self, unwantedUnsavedFrames):
         self.updateCurrentFramesJSON(self.frameInfo, unwantedUnsavedFrames)
+        self.updateCurrentInstanceJSON(self.currentInstanceObject)
         root.destroy()
     ### ----------
 
@@ -412,6 +432,11 @@ class ContainerWindow:
         #Write changes
         file = open("currentFiles.json", "w")
         json.dump(frameInfo, file)
+        file.close()
+
+    def updateCurrentInstanceJSON(self, currentInstanceObject):
+        file = open("currentInstance.json", "w")
+        json.dump(currentInstanceObject, file)
         file.close()
 
     #MENU OPERATIONS------
