@@ -1,0 +1,4 @@
+mainThemeColor LightGreen
+tabColour white
+activeTabColour Yellow
+askUnsavedTabsOnClose CheckEach
