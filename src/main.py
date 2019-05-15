@@ -5,7 +5,7 @@ from tkinter import filedialog
 
 
 #Import local classes
-from src.cryptography import Cryptography
+from src.cryptography import Cryptography as CryptWindow
 #TODO Add functionality for keeping deleted files stored temporarily
 #TODO: create cryptogrpahy functions, add new menu items and functionality
 #https://pythonspot.com/tk-file-dialogs/
@@ -85,8 +85,8 @@ class ContainerWindow:
         self.toolsMenu = Menu(self.menubar, tearoff=0)
         #Add sub menuas menu item
         self.cryptographyMenu = Menu(self.toolsMenu, tearoff=0)
-        self.cryptographyMenu.add_command(label="Hash", command=lambda: Cryptography.hashDialog(self))
-        self.cryptographyMenu.add_command(label="Encryption", command=lambda: Cryptography.encryptionDialog(self))
+        self.cryptographyMenu.add_command(label="Hash", command=lambda: self.createWindow("hash", "", ""))
+        self.cryptographyMenu.add_command(label="Encryption", command=lambda: self.createWindow("hash", "", ""))
         self.toolsMenu.add_cascade(label="Cryptography", menu=self.cryptographyMenu)
         #Add normal menu item
         self.toolsMenu.add_command(label="About tools", command=self.hello)
@@ -161,22 +161,43 @@ class ContainerWindow:
             self.windowMenu.add_command(label=frameName, command=lambda: self.show_frame(frameName))
             #Create a tab for the frame:
             self.createTab(frameName)
-
             #Set current frame, this method also sets current tab
             self.show_frame(frameName)
-        """
-        elif windowTitle == "CryptographyWindow":
-            self.cryptWindowFrame = Frame(self.baseFrame)
-            self.cryptWindow = CryptWindow(self.cryptWindowFrame, self)
-            # mainWindow is grided to mainWindowFrame
-            self.cryptWindow.grid(row=0, column=0, sticky="nesw")
-            # mainWindowFrame is grided to baseFrame, it can now be switched with the desireded Window Frame
-            self.cryptWindowFrame.grid(row=0, column=0, sticky="nesw")
-            self.frames[CryptWindow] = self.cryptWindowFrame
-            # Add frame to menu so that it can be switched too
-            self.windowMenu.add_command(label="HashWindow", command=lambda: self.show_frame(CryptWindow))
-        """
+
+            """
+                    elif windowTitle == "CryptographyWindow":
+                        self.cryptWindowFrame = Frame(self.baseFrame)
+                        self.cryptWindow = CryptWindow(self.cryptWindowFrame, self)
+                        # mainWindow is grided to mainWindowFrame
+                        self.cryptWindow.grid(row=0, column=0, sticky="nesw")
+                        # mainWindowFrame is grided to baseFrame, it can now be switched with the desireded Window Frame
+                        self.cryptWindowFrame.grid(row=0, column=0, sticky="nesw")
+                        self.frames[CryptWindow] = self.cryptWindowFrame
+                        # Add frame to menu so that it can be switched too
+                        self.windowMenu.add_command(label="HashWindow", command=lambda: self.show_frame(CryptWindow))
+            """
         #print(self.baseFrame.winfo_children())
+        #TODO Complete hash window functionality, add encryption window functionality
+        elif windowTitle == "hash":
+            print("Hash window")
+            self.mainWindowFrame = Frame(self.baseFrame)
+            self.mainWindow = CryptWindow(self.mainWindowFrame, "hash")
+            self.mainWindow.grid(row=0, column=0, sticky="nesw")
+            self.mainWindowFrame.grid(row=0, column=0, sticky="nesw")
+            if frameName != "":
+                self.frames[frameName] = self.mainWindowFrame
+            else:
+                #Make sure random name is not taken
+                frameName = "new {}".format(len(self.frames)+1)
+                self.frames[frameName] = self.mainWindowFrame
+            currentDate = time.strftime('%d-%m-%Y')
+            if frameInfoItem == "":
+                self.frameInfo[frameName] = {"path": "", "creationDate": currentDate, "windowType": "hash"}
+            else:
+                self.frameInfo[frameName] = frameInfoItem
+            self.windowMenu.add_command(label=frameName, command=lambda: self.show_frame(frameName))
+            self.createTab(frameName)
+            self.show_frame(frameName)
 
     def removeFrame(self, frameName):
         # currentFrameText = self.frames[self.currentFrame].winfo_children()[1].get(1.0, END)
