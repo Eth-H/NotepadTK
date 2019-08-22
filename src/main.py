@@ -52,7 +52,7 @@ class ContainerWindow:
 
     def initUI(self):
         #FORAMT WINDOW
-        self.root.configure(bg="#98fb98")
+        self.root.configure(bg=self.settingsObject["mainThemeColor"])
         self.root.title("NotepadTK")
         self.root.minsize(500, 500)
 
@@ -93,7 +93,7 @@ class ContainerWindow:
         self.menubar.add_cascade(label="Tools", menu=self.toolsMenu)
 
         #CREATE TABBAR
-        self.tabBar = Frame(root, borderwidth=1, relief='raised', bg=self.settingsObject["mainThemeColor"])
+        self.tabBar = Frame(root, borderwidth=1, relief='raised', bg=self.settingsObject["tabBarColour"])
         self.tabBar.pack(side=TOP, fill= X)
         #Tab JSON, EG frameName: tabFrameObject
         self.tabs = {}
@@ -154,7 +154,7 @@ class ContainerWindow:
             currentDate = time.strftime('%d-%m-%Y')
             #If no frameInfo was passed give it default values, otherwise assume old fileInfo
             if frameInfoItem == "":
-                self.frameInfo[frameName] = {"path": "", "creationDate": currentDate, "windowType": "text"}
+                self.frameInfo[frameName] = {"path": "", "creationDate": currentDate, "windowType": "main"}
             else:
                 self.frameInfo[frameName] = frameInfoItem
             # Add frame to menu so that it can be switched too
@@ -179,7 +179,6 @@ class ContainerWindow:
         #print(self.baseFrame.winfo_children())
         #TODO Complete hash window functionality, add encryption window functionality
         elif windowTitle == "hash":
-            print("Hash window")
             self.mainWindowFrame = Frame(self.baseFrame)
             self.mainWindow = CryptWindow(self.mainWindowFrame, "hash")
             self.mainWindow.grid(row=0, column=0, sticky="nesw")
@@ -288,7 +287,6 @@ class ContainerWindow:
         except(IOError):
             messagebox.showerror("Open file", "Path error")
 
-
     def saveAsFile(self):
         #Get the user to chose a location (to generate a path)
         filePath = filedialog.asksaveasfilename(initialdir=self.currentInstanceObject["lastPathUsed"], title=self.currentFrame,
@@ -300,17 +298,20 @@ class ContainerWindow:
         pathHead, pathTail = os.path.split(filePath)
         self.currentInstanceObject["lastPathUsed"] = pathHead
 
-        currentFrameText = self.frames[self.currentFrame].winfo_children()[1].get(1.0, END)
-        try:
-            file = open(filePath, "w")
+        file = open(filePath, "w")
+        if self.frameInfo[self.currentFrame]["windowType"] == "main":
+            currentFrameText = self.frames[self.currentFrame].winfo_children()[1].get(1.0, END)
             file.write(currentFrameText)
-            file.close()
-            self.frameInfo[self.currentFrame]["path"] = filePath
-            #Extract file name from path and change throughout frame
-            pathHead, pathTail = os.path.split(filePath)
-            self.changeFrameName(pathTail)
-        except:
-            messagebox.showerror("Save Error", "Incorrect path or file position")
+        elif self.frameInfo[self.currentFrame]["windowType"] == "hash":
+            # TODO save hash frames, figure out which children are the entry widgets
+            print(self.frames[self.currentFrame].winfo_children()[0].winfo_children())
+            print("\n")
+
+        file.close()
+        self.frameInfo[self.currentFrame]["path"] = filePath
+        #Extract file name from path and change throughout frame
+        self.changeFrameName(pathTail)
+
 
     def changeFrameName(self, frameName):
         #Update frameName in each JSON using old currentFrame and then set currentFrame to new frameName
@@ -333,9 +334,13 @@ class ContainerWindow:
             self.saveAsFile()
         else:
             try:
-                file = open(self.frameInfo[self.currentFrame]["path"], "w")
-                file.write(self.frames[self.currentFrame].winfo_children()[1].get(1.0, END))
-                file.close()
+                if self.frameInfo[self.currentFrame]["windowType"] == "text":
+                    file = open(self.frameInfo[self.currentFrame]["path"], "w")
+                    file.write(self.frames[self.currentFrame].winfo_children()[1].get(1.0, END))
+                    file.close()
+                elif self.frameInfo[self.currentFrame]["windowType"] == "hash":
+                    print(self.frames[self.currentFrame].winfo_children())
+                    #TODO save hash frames
             except:
                 messagebox.showerror("Save Error", "Incorrect path or file position")
     ### Methods related to closing the program ----------
