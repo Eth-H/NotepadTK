@@ -1,7 +1,0 @@
-python-apt==1.6.3
-python-debian==0.1.32
-python-xapp==1.4.0
-python-tk==2.7.16
-virtualenv==16.7.2
-virtualenv-clone==0.5.3
-
